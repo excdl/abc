@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品管理後台</title>
+<style>
+body { font-family: '微軟正黑體'; padding: 10px; background: #f5f5f5; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background: #eee; }
+input, select, textarea { width: 100%; margin-bottom: 5px; padding: 4px; }
+button { margin: 2px; padding: 5px 10px; }
+img { max-width: 100px; max-height: 80px; }
+</style>
+</head>
+<body>
+
+<h2>商品管理後台</h2>
+
+<h3>新增 / 修改商品</h3>
+<div>
+  <input type="hidden" id="rowIndex">
+  <label>商品名稱</label><input type="text" id="商品名稱">
+  <label>價格</label><input type="number" id="價格">
+  <label>庫存</label><input type="number" id="庫存">
+  <label>分類</label><input type="text" id="分類">
+  <label>商品簡介</label><textarea id="商品簡介"></textarea>
+  <label>規格</label><textarea id="規格"></textarea>
+  <label>是否上架</label>
+  <select id="是否上架">
+    <option value="是">是</option>
+    <option value="否">否</option>
+  </select>
+  <label>上傳商品圖片</label>
+  <input type="file" id="imageFile">
+  <button onclick="uploadImage()">上傳圖片</button>
+  <p id="uploadStatus"></p>
+  <input type="hidden" id="圖片檔名">
+
+  <button onclick="saveProduct()">儲存商品</button>
+</div>
+
+<h3>商品列表</h3>
+<table id="productTable">
+  <thead>
+    <tr>
+      <th>#</th><th>名稱</th><th>價格</th><th>庫存</th><th>分類</th>
+      <th>簡介</th><th>規格</th><th>上架</th><th>圖片</th><th>操作</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycby2KxGbAh4dcLYs4IkIIbV77r83vgjsMEgsngdkLQtJvny4kVqEnBH0qt25wK8p0bz2uQ/exec";
+
+let products = [];
+
+// 取得商品列表
+function loadProducts(){
+  fetch(GAS_URL+"?action=getProducts")
+    .then(res=>res.json())
+    .then(data=>{
+      products = data;
+      const tbody = document.querySelector("#productTable tbody");
+      tbody.innerHTML = "";
+      products.forEach((p,i)=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${p['商品名稱']||''}</td>
+          <td>${p['價格']||''}</td>
+          <td>${p['庫存']||''}</td>
+          <td>${p['分類']||''}</td>
+          <td>${p['商品簡介']||''}</td>
+          <td>${p['規格']||''}</td>
+          <td>${p['是否上架']||''}</td>
+          <td>${p['圖片連結']?`<img sr
