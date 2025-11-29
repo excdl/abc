@@ -4,306 +4,209 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品管理後台</title>
-
 <style>
-body{
-  font-family: 'Segoe UI', '微軟正黑體', sans-serif;
-  background:#f2f4f7;
-  margin:0;
-  padding:0;
-}
-
-header{
-  background:#3b82f6;
-  color:white;
-  padding:15px 25px;
-  font-size:22px;
-  font-weight:bold;
-}
-
-.container{
-  padding:20px;
-  max-width:1100px;
-  margin:auto;
-}
-
-button{
-  padding:8px 14px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-  font-size:14px;
-}
-.btn-primary{ background:#3b82f6; color:white; }
-.btn-danger{ background:#ef4444; color:white; }
-.btn-light{ background:#e5e7eb; }
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:20px;
-  background:white;
-  border-radius:8px;
-  overflow:hidden;
-}
-th{
-  background:#e5e7eb;
-  padding:10px;
-  font-weight:bold;
-}
-td{
-  border-top:1px solid #ddd;
-  padding:10px;
-}
-img{
-  width:80px;
-  height:80px;
-  object-fit:cover;
-  border-radius:6px;
-}
-
-/* --- Modal 視窗 --- */
-.modal-bg{
-  display:none;
-  position:fixed;
-  top:0; left:0; right:0; bottom:0;
-  background:rgba(0,0,0,0.4);
-  justify-content:center;
-  align-items:center;
-}
-.modal{
-  background:white;
-  padding:20px;
-  width:420px;
-  border-radius:8px;
-  box-shadow:0 5px 20px rgba(0,0,0,0.2);
-}
-.modal h3{ margin-top:0; }
-
-/* 拖曳區 */
-#dropArea{
-  border:2px dashed #3b82f6;
-  padding:20px;
-  text-align:center;
-  border-radius:8px;
-  margin-top:10px;
-  cursor:pointer;
-  background:#f8fafc;
-}
-#dropArea.hover{
-  background:#dbeafe;
-}
-#preview{
-  margin-top:10px;
-  text-align:center;
-}
-#preview img{
-  width:120px;
-  height:120px;
-  border-radius:10px;
-  object-fit:cover;
-}
+body { font-family:'微軟正黑體'; padding:10px; background:#f5f5f5; }
+h2,h3 { margin:5px 0; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th,td { border:1px solid #ccc; padding:5px; text-align:left; }
+th { background:#eee; }
+input, select, textarea, button { width:100%; margin-bottom:5px; padding:5px; box-sizing:border-box; }
+#imageDrop { border:2px dashed #aaa; padding:20px; text-align:center; color:#666; margin-bottom:5px; cursor:pointer; }
+#preview img { max-width:100px; max-height:80px; margin:5px; border:1px solid #ccc; }
+button.small { width:auto; padding:2px 5px; margin:2px; }
 </style>
 </head>
-
 <body>
-<header>商品管理後台</header>
-<div class="container">
 
-<button class="btn-primary" onclick="openModal()">＋ 新增商品</button>
+<h2>商品管理後台</h2>
 
+<h3>新增 / 修改商品</h3>
+<div>
+  <input type="hidden" id="rowId">
+  <label>商品名稱</label><input type="text" id="商品名稱">
+  <label>價格</label><input type="number" id="價格">
+  <label>庫存</label><input type="number" id="庫存">
+  <label>分類</label><input type="text" id="分類">
+  <label>商品簡介</label><textarea id="商品簡介"></textarea>
+  <label>規格</label><textarea id="規格"></textarea>
+  <label>是否上架</label>
+  <select id="是否上架">
+    <option value="是">是</option>
+    <option value="否">否</option>
+  </select>
+
+  <label>上傳商品圖片（可拖曳或點擊選擇）</label>
+  <div id="imageDrop">拖曳圖片到此或點擊選擇</div>
+  <input type="file" id="imageFile" multiple style="display:none;">
+  <div id="preview"></div>
+  <p id="uploadStatus"></p>
+
+  <button onclick="saveProduct()">儲存商品</button>
+</div>
+
+<h3>商品列表</h3>
 <table id="productTable">
   <thead>
     <tr>
-      <th>#</th><th>名稱</th><th>價格</th><th>庫存</th>
-      <th>分類</th><th>圖片</th><th>操作</th>
+      <th>#</th><th>名稱</th><th>價格</th><th>庫存</th><th>分類</th>
+      <th>簡介</th><th>規格</th><th>上架</th><th>圖片</th><th>操作</th>
     </tr>
   </thead>
   <tbody></tbody>
 </table>
 
-</div>
-
-<!-- Modal -->
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <h3 id="modalTitle">新增商品</h3>
-
-    <input type="hidden" id="rowId">
-
-    <label>商品名稱</label>
-    <input id="商品名稱" style="width:100%;margin-bottom:6px;" />
-
-    <label>價格</label>
-    <input id="價格" type="number" style="width:100%;margin-bottom:6px;" />
-
-    <label>庫存</label>
-    <input id="庫存" type="number" style="width:100%;margin-bottom:6px;" />
-
-    <label>分類</label>
-    <input id="分類" style="width:100%;margin-bottom:6px;" />
-
-    <label>商品簡介</label>
-    <textarea id="商品簡介" style="width:100%;height:60px;margin-bottom:6px;"></textarea>
-
-    <label>規格</label>
-    <textarea id="規格" style="width:100%;height:60px;margin-bottom:6px;"></textarea>
-
-    <label>狀態</label>
-    <select id="是否上架" style="width:100%;margin-bottom:6px;">
-      <option value="是">是</option>
-      <option value="否">否</option>
-    </select>
-
-    <!-- 拖曳上傳區 -->
-    <label>商品圖片</label>
-    <div id="dropArea">拖曳圖片到此處或點擊上傳</div>
-    <input type="file" id="imageInput" style="display:none;">
-    <div id="preview"></div>
-
-    <input type="hidden" id="圖片檔名">
-
-    <br>
-    <button class="btn-primary" onclick="saveProduct()">儲存</button>
-    <button class="btn-light" onclick="closeModal()">取消</button>
-  </div>
-</div>
-
 <script>
-// --- 改這裡換成你的 GAS URL ---
-const GAS_URL = "https://script.google.com/macros/s/AKfycby9KW7BpI0TFRxW7scn2aTl_ZaZmf_QZWHGjPpAVRuYVy1OKH-IsiaaEecAKwyPQ0YnIA/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzuKQ7itIMkR8Ju3uyVhD0njcu7Xf8rbdrJwfrmyrw6bIm2iuhyqyn11uNrUaW8POol2g/exec";
+let products = [];
+let imageFiles = [];
 
-// 開關 Modal
-function openModal(p=null){
-  document.getElementById("modalBg").style.display="flex";
+// 拖曳事件
+const drop = document.getElementById("imageDrop");
+drop.addEventListener("click",()=>document.getElementById("imageFile").click());
+drop.addEventListener("dragover",e=>{e.preventDefault(); drop.style.borderColor="#00f";});
+drop.addEventListener("dragleave",e=>{e.preventDefault(); drop.style.borderColor="#aaa";});
+drop.addEventListener("drop",e=>{
+  e.preventDefault(); drop.style.borderColor="#aaa";
+  handleFiles(e.dataTransfer.files);
+});
+document.getElementById("imageFile").addEventListener("change", e=>handleFiles(e.target.files));
 
-  if(p){
-    document.getElementById("modalTitle").innerText="編輯商品";
-    document.getElementById("rowId").value = p.rowId;
-    document.getElementById("商品名稱").value = p["商品名稱"];
-    document.getElementById("價格").value = p["價格"];
-    document.getElementById("庫存").value = p["庫存"];
-    document.getElementById("分類").value = p["分類"];
-    document.getElementById("商品簡介").value = p["商品簡介"];
-    document.getElementById("規格").value = p["規格"];
-    document.getElementById("是否上架").value = p["是否上架"];
-    document.getElementById("圖片檔名").value = p["圖片檔名"] || "";
-    if(p["圖片連結"]) {
-      document.getElementById("preview").innerHTML = `<img src="${p["圖片連結"]}">`;
-    }
-  }else{
-    document.getElementById("modalTitle").innerText="新增商品";
-    document.querySelectorAll(".modal input, .modal textarea").forEach(e=>e.value="");
-    document.getElementById("preview").innerHTML="";
+function handleFiles(files){
+  for(let f of files){
+    imageFiles.push(f);
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = document.createElement("img");
+      img.src = e.target.result;
+      img.title = f.name;
+      img.onclick = ()=>{ if(confirm("刪除此圖?")){ img.remove(); imageFiles = imageFiles.filter(x=>x!==f); } };
+      document.getElementById("preview").appendChild(img);
+    };
+    reader.readAsDataURL(f);
   }
 }
 
-function closeModal(){
-  document.getElementById("modalBg").style.display="none";
-}
-
-// 取得商品列表
-function loadProducts(){
-  fetch(GAS_URL+"?action=getProducts")
-    .then(r=>r.json())
-    .then(res=>{
-      const tbody = document.querySelector("#productTable tbody");
-      tbody.innerHTML="";
-
-      res.forEach((p,i)=>{
-        tbody.innerHTML += `
-          <tr>
-            <td>${i+1}</td>
-            <td>${p["商品名稱"]||''}</td>
-            <td>${p["價格"]||''}</td>
-            <td>${p["庫存"]||''}</td>
-            <td>${p["分類"]||''}</td>
-            <td>${p["圖片連結"] ? `<img src="${p["圖片連結"]}">` : ''}</td>
-            <td>
-              <button class="btn-primary" onclick='openModal(${JSON.stringify(p)})'>編輯</button>
-              <button class="btn-danger" onclick='deleteProduct("${p.rowId}")'>刪除</button>
-            </td>
-          </tr>
-        `;
-      });
-    });
-}
-
-// 儲存商品
-function saveProduct(){
-  const data = {
-    action:"save",
-    rowId:document.getElementById("rowId").value,
-    "商品名稱":document.getElementById("商品名稱").value,
-    "價格":document.getElementById("價格").value,
-    "庫存":document.getElementById("庫存").value,
-    "分類":document.getElementById("分類").value,
-    "商品簡介":document.getElementById("商品簡介").value,
-    "規格":document.getElementById("規格").value,
-    "是否上架":document.getElementById("是否上架").value,
-    "圖片檔名":document.getElementById("圖片檔名").value
-  };
-
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify(data) })
-    .then(r=>r.json())
-    .then(res=>{
-      closeModal();
-      loadProducts();
-    });
-}
-
-// 刪除商品
-function deleteProduct(id){
-  if(!confirm("確定刪除？")) return;
-
-  fetch(GAS_URL, {
-    method:"POST",
-    body:JSON.stringify({action:"delete", rowId:id})
-  })
-  .then(r=>r.json())
-  .then(()=>loadProducts());
-}
-
-// --- 圖片拖曳上傳 ---
-const dropArea = document.getElementById("dropArea");
-const imageInput = document.getElementById("imageInput");
-
-// 點擊觸發 input
-dropArea.onclick = ()=> imageInput.click();
-
-// 拖曳效果
-dropArea.addEventListener("dragover", e=>{
-  e.preventDefault();
-  dropArea.classList.add("hover");
-});
-dropArea.addEventListener("dragleave", ()=> dropArea.classList.remove("hover"));
-dropArea.addEventListener("drop", e=>{
-  e.preventDefault();
-  dropArea.classList.remove("hover");
-  uploadImage(e.dataTransfer.files[0]);
-});
-
-imageInput.onchange = e => uploadImage(e.target.files[0]);
-
-function uploadImage(file){
-  if(!file) return;
-
-  const form = new FormData();
-  form.append("action","uploadImage");
-  form.append("file", file);
-
-  fetch(GAS_URL, {method:"POST", body:form})
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status==="success"){
-      document.getElementById("圖片檔名").value = res.fileId;
-      document.getElementById("preview").innerHTML = `<img src="${res.url}">`;
-    }else{
-      alert("圖片上傳失敗：" + res.message);
-    }
+// 壓縮圖片
+function compressImage(file, maxWidth=1024, quality=0.7){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload=()=>{
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1,maxWidth/img.width);
+      canvas.width = img.width*scale;
+      canvas.height = img.height*scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(blob=>resolve(blob),"image/jpeg",quality);
+    };
+    img.src = URL.createObjectURL(file);
   });
 }
 
+// 上傳圖片
+async function uploadImages(category){
+  const urls = [];
+  for(let f of imageFiles){
+    const blob = await compressImage(f);
+    const form = new FormData();
+    form.append("file", blob, f.name);
+    form.append("category", category);
+    form.append("action","uploadImage");
+    const res = await fetch(GAS_URL,{method:"POST", body:form});
+    const data = await res.json();
+    if(data.status==="success") urls.push(data.fileId);
+    else console.error("上傳失敗",data.message);
+  }
+  imageFiles = [];
+  document.getElementById("preview").innerHTML="";
+  return urls;
+}
+
+// 儲存商品
+async function saveProduct(){
+  const category = document.getElementById("分類").value || "未分類";
+  const imgs = await uploadImages(category);
+  const data = {
+    rowId: document.getElementById("rowId").value,
+    商品名稱: document.getElementById("商品名稱").value,
+    價格: document.getElementById("價格").value,
+    庫存: document.getElementById("庫存").value,
+    分類: category,
+    商品簡介: document.getElementById("商品簡介").value,
+    規格: document.getElementById("規格").value,
+    是否上架: document.getElementById("是否上架").value,
+    圖片檔名: imgs.join(",")
+  };
+  const res = await fetch(GAS_URL,{
+    method:"POST",
+    body: JSON.stringify({action:"save", ...data})
+  });
+  const result = await res.json();
+  if(result.status==="success") { alert("儲存成功"); loadProducts(); }
+  else alert("儲存失敗:"+result.message);
+}
+
+// 讀取商品列表
+async function loadProducts(){
+  const res = await fetch(GAS_URL+"?action=getProducts");
+  const data = await res.json();
+  products = data;
+  const tbody = document.querySelector("#productTable tbody");
+  tbody.innerHTML="";
+  data.forEach((p,i)=>{
+    const tr = document.createElement("tr");
+    let imgs = "";
+    if(p['圖片檔名']){
+      p['圖片檔名'].split(",").forEach(id=>{
+        imgs += `<img src="https://drive.google.com/uc?export=view&id=${id}">`;
+      });
+    }
+    tr.innerHTML=`
+      <td>${i+1}</td>
+      <td>${p['商品名稱']||''}</td>
+      <td>${p['價格']||''}</td>
+      <td>${p['庫存']||''}</td>
+      <td>${p['分類']||''}</td>
+      <td>${p['商品簡介']||''}</td>
+      <td>${p['規格']||''}</td>
+      <td>${p['是否上架']||''}</td>
+      <td>${imgs}</td>
+      <td>
+        <button class="small" onclick="editProduct(${i})">編輯</button>
+        <button class="small" onclick="deleteProduct(${i})">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// 編輯
+function editProduct(i){
+  const p = products[i];
+  document.getElementById("rowId").value = p.rowId;
+  document.getElementById("商品名稱").value = p.商品名稱;
+  document.getElementById("價格").value = p.價格;
+  document.getElementById("庫存").value = p.庫存;
+  document.getElementById("分類").value = p.分類;
+  document.getElementById("商品簡介").value = p.商品簡介;
+  document.getElementById("規格").value = p.規格;
+  document.getElementById("是否上架").value = p.是否上架;
+}
+
+// 刪除
+async function deleteProduct(i){
+  if(!confirm("確定刪除?")) return;
+  const p = products[i];
+  const res = await fetch(GAS_URL,{
+    method:"POST",
+    body: JSON.stringify({action:"delete", rowId:p.rowId})
+  });
+  const result = await res.json();
+  if(result.status==="success") loadProducts();
+  else alert(result.message);
+}
+
+// 初始化
 loadProducts();
 </script>
 
