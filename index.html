@@ -79,117 +79,124 @@
   </div>
 
 </div>
-<script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzuKQ7itIMkR8Ju3uyVhD0njcu7Xf8rbdrJwfrmyrw6bIm2iuhyqyn11uNrUaW8POol2g/exec"; // 必須是已部署、任何人可存取
-let products = [];
-let imageFiles = [];
 
-// ===== 拖曳 / 點擊上傳 =====
-const drop = document.getElementById("imageDrop");
-drop.addEventListener("click",()=>document.getElementById("imageFile").click());
-drop.addEventListener("dragover",e=>{e.preventDefault(); drop.style.borderColor="#00f";});
-drop.addEventListener("dragleave",e=>{e.preventDefault(); drop.style.borderColor="#aaa";});
-drop.addEventListener("drop",e=>{
-  e.preventDefault(); drop.style.borderColor="#aaa";
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyD3DolaYqCIbbeKDrXn8K_ADdZ_lSyWVKALno2w9SzKM67E51KXqqgefL5lqa1P9FGEw/exec";
+
+let products = [];
+let imagesToUpload = [];
+
+// -------------------- 拖曳 & 選擇圖片 --------------------
+const imageDrop = document.getElementById('imageDrop');
+const imageFileInput = document.getElementById('imageFile');
+const previewDiv = document.getElementById('preview');
+
+imageDrop.addEventListener('click', ()=> imageFileInput.click());
+imageDrop.addEventListener('dragover', e=> { e.preventDefault(); imageDrop.classList.add('dragover'); });
+imageDrop.addEventListener('dragleave', e=> { e.preventDefault(); imageDrop.classList.remove('dragover'); });
+imageDrop.addEventListener('drop', e=>{
+  e.preventDefault();
+  imageDrop.classList.remove('dragover');
   handleFiles(e.dataTransfer.files);
 });
-document.getElementById("imageFile").addEventListener("change", e=>handleFiles(e.target.files));
+imageFileInput.addEventListener('change', e=> handleFiles(e.target.files));
 
 function handleFiles(files){
-  for(let f of files){
-    imageFiles.push(f);
+  for(const file of files){
+    if(!file.type.startsWith('image/')) continue;
+    imagesToUpload.push(file);
     const reader = new FileReader();
     reader.onload = e=>{
-      const img = document.createElement("img");
+      const img = document.createElement('img');
       img.src = e.target.result;
-      img.title = f.name;
-      img.onclick = ()=>{ if(confirm("刪除此圖?")){ img.remove(); imageFiles = imageFiles.filter(x=>x!==f); } };
-      document.getElementById("preview").appendChild(img);
-    };
-    reader.readAsDataURL(f);
+      img.onclick = ()=> { 
+        const idx = imagesToUpload.indexOf(file);
+        if(idx>-1) imagesToUpload.splice(idx,1);
+        img.remove();
+      }
+      previewDiv.appendChild(img);
+    }
+    reader.readAsDataURL(file);
   }
 }
 
-// ===== 壓縮圖片 =====
-function compressImage(file, maxWidth=1024, quality=0.7){
+// -------------------- 壓縮圖片 --------------------
+function compressImage(file, maxSize=300*1024){
   return new Promise(resolve=>{
-    const img = new Image();
-    img.onload=()=>{
-      const canvas = document.createElement("canvas");
-      const scale = Math.min(1,maxWidth/img.width);
-      canvas.width = img.width*scale;
-      canvas.height = img.height*scale;
-      canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
-      canvas.toBlob(blob=>resolve(blob),"image/jpeg",quality);
-    };
-    img.src = URL.createObjectURL(file);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = e=>{
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = ()=>{
+        const canvas = document.createElement('canvas');
+        const scale = Math.sqrt(maxSize / file.size);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(blob=>{
+          resolve(blob);
+        }, file.type, 0.8);
+      }
+    }
   });
 }
 
-// ===== 上傳圖片 =====
-async function uploadImages(category){
-  const urls = [];
-  for(let f of imageFiles){
-    const blob = await compressImage(f);
-    const form = new FormData();
-    form.append("file", blob, f.name);
-    form.append("category", category);
-    form.append("action","uploadImage");
-    const res = await fetch(GAS_URL,{method:"POST", body:form});
+// -------------------- 上傳圖片 --------------------
+async function uploadImages(){
+  let uploadedIds = [];
+  for(const file of imagesToUpload){
+    const blob = await compressImage(file);
+    const formData = new FormData();
+    formData.append('file', blob, file.name);
+    formData.append('action', 'uploadImage');
+    const res = await fetch(GAS_URL, { method:'POST', body: formData });
     const data = await res.json();
-    if(data.status==="success") urls.push(data.fileId);
-    else console.error("圖片上傳失敗",data.message);
+    if(data.status==='success') uploadedIds.push(data.fileId);
   }
-  imageFiles = [];
-  document.getElementById("preview").innerHTML="";
-  return urls;
+  imagesToUpload = [];
+  previewDiv.innerHTML = '';
+  return uploadedIds;
 }
 
-// ===== 儲存商品 =====
+// -------------------- 儲存商品 --------------------
 async function saveProduct(){
-  try{
-    const category = document.getElementById("分類").value || "未分類";
-    const imgs = await uploadImages(category);
-    const data = {
-      rowId: document.getElementById("rowId").value,
-      商品名稱: document.getElementById("商品名稱").value,
-      價格: document.getElementById("價格").value,
-      庫存: document.getElementById("庫存").value,
-      分類: category,
-      商品簡介: document.getElementById("商品簡介").value,
-      規格: document.getElementById("規格").value,
-      是否上架: document.getElementById("是否上架").value,
-      圖片檔名: imgs.join(",")
-    };
-
-    const res = await fetch(GAS_URL,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({action:"save", ...data})
-    });
-    const result = await res.json();
-    if(result.status==="success"){ alert("儲存成功"); loadProducts(); }
-    else alert("儲存失敗: "+result.message);
-  }catch(err){
-    console.error(err);
-    alert("儲存過程發生錯誤，請檢查Console");
-  }
+  const fileIds = await uploadImages();
+  const payload = {
+    action:'save',
+    rowId: document.getElementById('rowId').value,
+    '商品名稱': document.getElementById('商品名稱').value,
+    '價格': document.getElementById('價格').value,
+    '庫存': document.getElementById('庫存').value,
+    '分類': document.getElementById('分類').value,
+    '商品簡介': document.getElementById('商品簡介').value,
+    '規格': document.getElementById('規格').value,
+    '是否上架': document.getElementById('是否上架').value,
+    '圖片檔名': fileIds.join(',')
+  };
+  const res = await fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(data.status==='success'){
+    alert('儲存成功');
+    clearForm();
+    loadProducts();
+  } else alert('儲存失敗:'+data.message);
 }
 
-// ===== 讀取商品列表 =====
+// -------------------- 讀取商品 --------------------
 async function loadProducts(){
-  const res = await fetch(GAS_URL+"?action=getProducts");
-  const data = await res.json();
-  products = data;
+  const res = await fetch(GAS_URL+'?action=getProducts');
+  products = await res.json();
   const tbody = document.querySelector("#productTable tbody");
-  tbody.innerHTML="";
-  data.forEach((p,i)=>{
-    const tr = document.createElement("tr");
-    let imgs="";
-    if(p['圖片檔名']){
-      p['圖片檔名'].split(",").forEach(id=> imgs+=`<img src="https://drive.google.com/uc?export=view&id=${id}">`);
-    }
-    tr.innerHTML=`
+  tbody.innerHTML = '';
+  products.forEach((p,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
       <td>${i+1}</td>
       <td>${p['商品名稱']||''}</td>
       <td>${p['價格']||''}</td>
@@ -198,83 +205,53 @@ async function loadProducts(){
       <td>${p['商品簡介']||''}</td>
       <td>${p['規格']||''}</td>
       <td>${p['是否上架']||''}</td>
-      <td>${imgs}</td>
+      <td>${p['圖片連結']?`<img src="${p['圖片連結']}">`:''}</td>
       <td>
-        <button class="small" onclick="editProduct(${i})">編輯</button>
-        <button class="small" onclick="deleteProduct(${i})">刪除</button>
-        <button class="small" onclick="addImage(${i})">補圖</button>
+        <button class="btn btn-sm btn-warning" onclick="editProduct('${p.rowId}')">編輯</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.rowId}')">刪除</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-// ===== 編輯 =====
-function editProduct(i){
-  const p = products[i];
-  document.getElementById("rowId").value = p.rowId;
-  document.getElementById("商品名稱").value = p.商品名稱;
-  document.getElementById("價格").value = p.價格;
-  document.getElementById("庫存").value = p.庫存;
-  document.getElementById("分類").value = p.分類;
-  document.getElementById("商品簡介").value = p.商品簡介;
-  document.getElementById("規格").value = p.規格;
-  document.getElementById("是否上架").value = p.是否上架;
+// -------------------- 編輯 / 刪除 --------------------
+function editProduct(rowId){
+  const p = products.find(p=>p.rowId===rowId);
+  if(!p) return;
+  document.getElementById('rowId').value = rowId;
+  document.getElementById('商品名稱').value = p['商品名稱'];
+  document.getElementById('價格').value = p['價格'];
+  document.getElementById('庫存').value = p['庫存'];
+  document.getElementById('分類').value = p['分類'];
+  document.getElementById('商品簡介').value = p['商品簡介'];
+  document.getElementById('規格').value = p['規格'];
+  document.getElementById('是否上架').value = p['是否上架'];
 }
 
-// ===== 刪除商品 =====
-async function deleteProduct(i){
-  if(!confirm("確定刪除?")) return;
-  const p = products[i];
+async function deleteProduct(rowId){
+  if(!confirm('確定刪除？')) return;
   const res = await fetch(GAS_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({action:"delete", rowId:p.rowId})
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'delete', rowId})
   });
-  const result = await res.json();
-  if(result.status==="success") loadProducts();
-  else alert(result.message);
+  const data = await res.json();
+  if(data.status==='success') loadProducts();
 }
 
-// ===== 補圖 =====
-async function addImage(index){
-  const p = products[index];
-  const input = document.createElement("input");
-  input.type="file";
-  input.multiple=true;
-  input.click();
-
-  input.onchange = async e=>{
-    const files = Array.from(e.target.files);
-    const category = p.分類 || "未分類";
-    const newFileIds = [];
-    for(let f of files){
-      const blob = await compressImage(f);
-      const form = new FormData();
-      form.append("file", blob, f.name);
-      form.append("category", category);
-      form.append("action","uploadImage");
-      const res = await fetch(GAS_URL,{method:"POST",body:form});
-      const data = await res.json();
-      if(data.status==="success") newFileIds.push(data.fileId);
-    }
-    const existing = p.圖片檔名 ? p.圖片檔名.split(",") : [];
-    const updated = existing.concat(newFileIds).join(",");
-    await fetch(GAS_URL,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({action:"save", rowId:p.rowId, 圖片檔名:updated})
-    });
-    loadProducts();
-  };
+// -------------------- 清空表單 --------------------
+function clearForm(){
+  document.getElementById('rowId').value='';
+  ['商品名稱','價格','庫存','分類','商品簡介','規格','是否上架'].forEach(id=>document.getElementById(id).value='');
 }
-
-// ===== 初始化 =====
-loadProducts();
+window.onload = loadProducts;
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
